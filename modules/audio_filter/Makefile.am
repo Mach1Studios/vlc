@@ -64,6 +64,14 @@ libsimple_channel_mixer_plugin_la_SOURCES = \
 libsimple_channel_mixer_plugin_la_CFLAGS =
 libsimple_channel_mixer_plugin_la_LIBADD =
 
+libsimple_channel_mixer_plugin_la_CFLAGS += -I../../m1-sdk/
+libsimple_channel_mixer_plugin_la_SOURCES += \
+	../../m1-sdk/Mach1DecodeCAPI.cpp \
+	../../m1-sdk/Mach1DecodeCore.cpp \
+	../../m1-sdk/Mach1Point3DCore.cpp \
+	../../m1-sdk/Mach1Point4DCore.cpp
+
+
 if HAVE_NEON
 EXTRA_LTLIBRARIES += libsimple_channel_mixer_plugin_arm_neon.la
 libsimple_channel_mixer_plugin_arm_neon_la_SOURCES = arm_neon/simple_channel_mixer.S
