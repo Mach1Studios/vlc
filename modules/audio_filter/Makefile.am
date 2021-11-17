@@ -70,13 +70,6 @@ libsimple_channel_mixer_plugin_la_SOURCES = \
 libsimple_channel_mixer_plugin_la_CFLAGS =
 libsimple_channel_mixer_plugin_la_LIBADD =
 
-libsimple_channel_mixer_plugin_la_CFLAGS += -I../../m1-sdk/includes/cpp
-libsimple_channel_mixer_plugin_la_SOURCES += \
-	../../m1-sdk/lib/Mach1DecodeCAPI.cpp \
-	../../m1-sdk/lib/Mach1DecodeCore.cpp \
-	../../m1-sdk/lib/Mach1Point3DCore.cpp \
-	../../m1-sdk/lib/Mach1Point4DCore.cpp
-
 if HAVE_NEON
 EXTRA_LTLIBRARIES += libsimple_channel_mixer_plugin_arm_neon.la
 libsimple_channel_mixer_plugin_arm_neon_la_SOURCES = arm_neon/simple_channel_mixer.S
@@ -98,10 +91,15 @@ audio_filter_LTLIBRARIES += \
 	libsimple_channel_mixer_plugin.la \
 	libtrivial_channel_mixer_plugin.la
 
-# Spatial audio: ambisonics / binaural
+# Spatial audio: ambisonics / binaural / mach1spatial
+MACH1SPATIAL_CFLAGS = -I../../../m1-sdk/includes/cpp
 libspatialaudio_plugin_la_SOURCES = \
-	audio_filter/channel_mixer/spatialaudio.cpp
-libspatialaudio_plugin_la_CXXFLAGS = $(AM_CXXFLAGS) $(SPATIALAUDIO_CFLAGS)
+	audio_filter/channel_mixer/spatialaudio.cpp \
+	../../../m1-sdk/lib/Mach1DecodeCAPI.cpp \
+	../../../m1-sdk/lib/Mach1DecodeCore.cpp \
+	../../../m1-sdk/lib/Mach1Point3DCore.cpp \
+	../../../m1-sdk/lib/Mach1Point4DCore.cpp
+libspatialaudio_plugin_la_CXXFLAGS = $(AM_CXXFLAGS) $(SPATIALAUDIO_CFLAGS) $(MACH1SPATIAL_CFLAGS)
 libspatialaudio_plugin_la_LIBADD = $(SPATIALAUDIO_LIBS)
 libspatialaudio_plugin_la_LDFLAGS = $(AM_LDFLAGS) -rpath '$(audio_filterdir)'
 EXTRA_LTLIBRARIES += libspatialaudio_plugin.la
