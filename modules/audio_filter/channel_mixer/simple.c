@@ -25,7 +25,7 @@
  *****************************************************************************/
 #ifdef HAVE_CONFIG_H
 # include "config.h"
-#endif
+#endif 
 
 #include <vlc_common.h>
 #include <vlc_plugin.h>
@@ -33,8 +33,8 @@
 #include <vlc_filter.h>
 #include <vlc_block.h>
 
-#include "../spatializer/m1spatial-sdk/Mach1DecodeCAPI.h"
-#include "../spatializer/m1spatial-sdk/Mach1Point3D.h"
+#include "Mach1DecodeCAPI.h"
+#include "Mach1Point3D.h"
 
 struct simple_filter_sys_t {
     void* M1obj;
