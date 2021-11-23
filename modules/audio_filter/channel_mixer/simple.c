@@ -33,8 +33,8 @@
 #include <vlc_filter.h>
 #include <vlc_block.h>
 
-#include "Mach1DecodeCAPI.h"
-#include "Mach1Point3D.h"
+#include "../spatializer/m1spatial-sdk/Mach1DecodeCAPI.h"
+#include "../spatializer/m1spatial-sdk/Mach1Point3D.h"
 
 struct simple_filter_sys_t {
     void* M1obj;
@@ -326,6 +326,9 @@ static void ChangeViewpoint( filter_t *p_filter, const vlc_viewpoint_t *p_vp)
 /*****************************************************************************
  * OpenFilter:
  *****************************************************************************/
+
+static struct vlc_filter_operations filterOperationSimple;
+
 static int OpenFilter( vlc_object_t *p_this )
 {
     filter_t *p_filter = (filter_t *)p_this;
@@ -355,6 +358,9 @@ static int OpenFilter( vlc_object_t *p_this )
                           || input == AOUT_CHANS_5_0_MIDDLE;
     const bool b_input_3_x = input == AOUT_CHANS_3_0;
 
+    filterOperationSimple.filter_audio = Filter;
+    filterOperationSimple.change_viewpoint = NULL;
+
     /*
      * TODO: We don't support any 8.1 input
      * TODO: We don't support any 6.x input
@@ -377,7 +383,7 @@ static int OpenFilter( vlc_object_t *p_this )
     {
         if( b_input_7_1  ) {
             do_work = GET_WORK(7_1,2_0);
-            p_filter->pf_change_viewpoint = ChangeViewpoint;
+            filterOperationSimple.change_viewpoint = ChangeViewpoint;
         }
         else if( b_input_7_x )
             do_work = GET_WORK(7_x,2_0);
@@ -409,7 +415,7 @@ static int OpenFilter( vlc_object_t *p_this )
     if( do_work == NULL )
         return VLC_EGENERIC;
 
-    p_filter->pf_audio_filter = Filter;
+    //p_filter->pf_audio_filter = Filter;
     //p_filter->p_sys = (void *)do_work;
 
     struct simple_filter_sys_t *p_sys = malloc(sizeof(struct simple_filter_sys_t));
@@ -419,7 +425,7 @@ static int OpenFilter( vlc_object_t *p_this )
     void* M1obj = Mach1DecodeCAPI_create();
     Mach1DecodeCAPI_setPlatformType(M1obj, Mach1PlatformDefault);
     Mach1DecodeCAPI_setDecodeAlgoType(M1obj, Mach1DecodeAlgoSpatial);
-    Mach1DecodeCAPI_setFilterSpeed(M1obj, 2.0);
+    Mach1DecodeCAPI_setFilterSpeed(M1obj, 0.95);
  
     p_sys->work = do_work;
     p_sys->M1obj = M1obj;
@@ -428,6 +434,7 @@ static int OpenFilter( vlc_object_t *p_this )
     p_sys->rotationDegrees.z = 0;
 
     p_filter->p_sys = p_sys;
+    p_filter->ops = &filterOperationSimple;
 
     return VLC_SUCCESS;
 }

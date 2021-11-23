@@ -92,13 +92,14 @@ audio_filter_LTLIBRARIES += \
 	libtrivial_channel_mixer_plugin.la
 
 # Spatial audio: ambisonics / binaural / mach1spatial
-MACH1SPATIAL_CFLAGS = -I../../../m1-sdk/includes/cpp
+MACH1SPATIAL_CFLAGS = -I../../m1-sdk/lib
 libspatialaudio_plugin_la_SOURCES = \
 	audio_filter/channel_mixer/spatialaudio.cpp \
-	../../../m1-sdk/lib/Mach1DecodeCAPI.cpp \
-	../../../m1-sdk/lib/Mach1DecodeCore.cpp \
-	../../../m1-sdk/lib/Mach1Point3DCore.cpp \
-	../../../m1-sdk/lib/Mach1Point4DCore.cpp
+	Mach1DecodeCAPI.cpp \
+	Mach1DecodeCore.cpp \
+	Mach1Point3DCore.cpp \
+	Mach1Point4DCore.cpp
+libspatialaudio_plugin_la_CFLAGS = $(MACH1SPATIAL_CFLAGS)
 libspatialaudio_plugin_la_CXXFLAGS = $(AM_CXXFLAGS) $(SPATIALAUDIO_CFLAGS) $(MACH1SPATIAL_CFLAGS)
 libspatialaudio_plugin_la_LIBADD = $(SPATIALAUDIO_LIBS)
 libspatialaudio_plugin_la_LDFLAGS = $(AM_LDFLAGS) -rpath '$(audio_filterdir)'
