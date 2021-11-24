@@ -329,6 +329,14 @@ static void ChangeViewpoint( filter_t *p_filter, const vlc_viewpoint_t *p_vp)
 
 static struct vlc_filter_operations filterOperationSimple;
 
+static void Flush( filter_t *p_filter )
+{
+}
+
+static void Close(filter_t *p_filter)
+{
+}
+
 static int OpenFilter( vlc_object_t *p_this )
 {
     filter_t *p_filter = (filter_t *)p_this;
@@ -360,6 +368,8 @@ static int OpenFilter( vlc_object_t *p_this )
 
     filterOperationSimple.filter_audio = Filter;
     filterOperationSimple.change_viewpoint = NULL;
+    filterOperationSimple.flush = Flush;
+    filterOperationSimple.close = Close;
 
     /*
      * TODO: We don't support any 8.1 input
