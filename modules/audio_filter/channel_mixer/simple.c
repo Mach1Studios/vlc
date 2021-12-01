@@ -327,19 +327,8 @@ static void ChangeViewpoint( filter_t *p_filter, const vlc_viewpoint_t *p_vp)
 /*****************************************************************************
  * OpenFilter:
  *****************************************************************************/
-
-static struct vlc_filter_operations filterOperationSimple;
-
-static void Flush( filter_t *p_filter )
-{
-}
-
-static void Close(filter_t *p_filter)
-{
-}
-
 static int OpenFilter( vlc_object_t *p_this )
-{
+{ 
     filter_t *p_filter = (filter_t *)p_this;
     void (*do_work)(filter_t *, block_t *, block_t *) = NULL;
 
@@ -358,19 +347,15 @@ static int OpenFilter( vlc_object_t *p_this )
 
     const bool b_input_6_1 = input == AOUT_CHANS_6_1_MIDDLE;
     const bool b_input_4_center_rear = input == AOUT_CHANS_4_CENTER_REAR;
+
+    // Mach1 test
+    //input &= ~AOUT_CHAN_LFE;
+
     const bool b_input_7_1 = input == AOUT_CHANS_7_1;
-
-    input &= ~AOUT_CHAN_LFE;
-
     const bool b_input_7_x = input == AOUT_CHANS_7_0;
     const bool b_input_5_x = input == AOUT_CHANS_5_0
                           || input == AOUT_CHANS_5_0_MIDDLE;
     const bool b_input_3_x = input == AOUT_CHANS_3_0;
-
-    filterOperationSimple.filter_audio = Filter;
-    filterOperationSimple.change_viewpoint = NULL;
-    filterOperationSimple.flush = Flush;
-    filterOperationSimple.close = Close;
 
     /*
      * TODO: We don't support any 8.1 input
@@ -394,7 +379,7 @@ static int OpenFilter( vlc_object_t *p_this )
     {
         if( b_input_7_1  ) {
             do_work = GET_WORK(7_1,2_0);
-            filterOperationSimple.change_viewpoint = ChangeViewpoint;
+            p_filter->pf_change_viewpoint = ChangeViewpoint; // ->p_sys
         }
         else if( b_input_7_x )
             do_work = GET_WORK(7_x,2_0);
@@ -426,7 +411,7 @@ static int OpenFilter( vlc_object_t *p_this )
     if( do_work == NULL )
         return VLC_EGENERIC;
 
-    //p_filter->pf_audio_filter = Filter;
+    p_filter->pf_audio_filter = Filter;
     //p_filter->p_sys = (void *)do_work;
 
     struct simple_filter_sys_t *p_sys = malloc(sizeof(struct simple_filter_sys_t));
@@ -445,7 +430,7 @@ static int OpenFilter( vlc_object_t *p_this )
     p_sys->rotationDegrees.z = 0;
 
     p_filter->p_sys = p_sys;
-    p_filter->ops = &filterOperationSimple;
+
     return VLC_SUCCESS;
 }
 
