@@ -43,6 +43,9 @@
 #include <spatialaudio/Ambisonics.h>
 #include <spatialaudio/SpeakersBinauralizer.h>
 
+#include "../../m1-sdk/lib/Mach1DecodeCAPI.h"
+#include "../../m1-sdk/lib/Mach1Point3D.h"
+
 #define CFG_PREFIX "spatialaudio-"
 
 #define DEFAULT_HRTF_PATH "hrtfs" DIR_SEP "dodeca_and_7channel_3DSL_HRTF.sofa"
@@ -109,7 +112,8 @@ struct filter_spatialaudio
     {
         AMBISONICS_DECODER, // Ambisonics decoding module
         AMBISONICS_BINAURAL_DECODER, // Ambisonics decoding module using binaural
-        BINAURALIZER // Binauralizer module
+        BINAURALIZER, // Binauralizer module
+        MACH1, // Mach1 module
     } mode;
 
     CAmbisonicBinauralizer binauralDecoder;
@@ -119,6 +123,12 @@ struct filter_spatialaudio
     CAmbisonicZoomer zoomer;
 
     CAmbisonicSpeaker *speakers;
+
+    // Mach1
+    void* M1obj;
+    struct Mach1Point3D rotationDegrees;
+    float coeffsFrom[18];
+    float coeffsTo[18];
 
     std::vector<float> inputSamples;
     mtime_t i_inputPTS;
@@ -163,8 +173,41 @@ static std::string getHRTFPath(filter_t *p_filter)
     return HRTFPath;
 }
 
-static block_t *Mix( filter_t *p_filter, block_t *p_buf )
+static void Mach1_Processing(filter_spatialaudio *p_sys) 
 {
+    void* M1obj = p_sys->M1obj;
+    int bufferSize = AMB_BLOCK_TIME_LEN;
+
+    Mach1DecodeCAPI_setRotationDegrees(M1obj, p_sys->rotationDegrees);
+
+    Mach1DecodeCAPI_beginBuffer(M1obj);
+	Mach1DecodeCAPI_decodeCoeffs(M1obj, p_sys->coeffsFrom, bufferSize, 0);
+	Mach1DecodeCAPI_decodeCoeffs(M1obj, p_sys->coeffsTo, bufferSize, bufferSize);
+
+    float sample = 0;
+	float vol[16];
+
+	for (size_t i = 0; i < bufferSize; i++) {
+		float lerp = 1.0 * i / bufferSize;
+		for (size_t c = 0; c < 16; c++) {
+			vol[c] = p_sys->coeffsFrom[c] * (1 - lerp) + p_sys->coeffsTo[c] * lerp;
+		}
+
+		for (size_t c = 0; c < 2; c++) {
+			sample = 0;
+			for (size_t k = 0; k < 8; k++)
+			{
+				sample += p_sys->inBuf[k][i] * vol[k * 2 + c];
+			}
+            p_sys->outBuf[c][i] = sample;
+		}
+	}
+
+    Mach1DecodeCAPI_endBuffer(M1obj);
+}
+
+static block_t *Mix( filter_t *p_filter, block_t *p_buf )
+{ 
     filter_spatialaudio *p_sys = reinterpret_cast<filter_spatialaudio *>(p_filter->p_sys);
 
     /* Detect discontinuity due to a pause */
@@ -214,6 +257,9 @@ static block_t *Mix( filter_t *p_filter, block_t *p_buf )
         // Compute
         switch (p_sys->mode)
         {
+            case filter_spatialaudio::MACH1:
+                Mach1_Processing(p_sys);
+                break;
             case filter_spatialaudio::BINAURALIZER:
                 p_sys->binauralizer.Process(p_sys->inBuf, p_sys->outBuf);
                 break;
@@ -267,11 +313,17 @@ static void Flush( filter_t *p_filter )
     filter_spatialaudio *p_sys = reinterpret_cast<filter_spatialaudio *>(p_filter->p_sys);
     p_sys->inputSamples.clear();
     p_sys->i_last_input_pts = p_sys->i_inputPTS = 0;
+    
+    // cleanup
 }
 
 static void ChangeViewpoint( filter_t *p_filter, const vlc_viewpoint_t *p_vp)
 {
     filter_spatialaudio *p_sys = reinterpret_cast<filter_spatialaudio *>(p_filter->p_sys);
+
+    p_sys->rotationDegrees.x = p_vp->yaw;
+    p_sys->rotationDegrees.y = p_vp->pitch;
+    p_sys->rotationDegrees.z = p_vp->roll;
 
 #define RAD(d) ((float) ((d) * M_PI / 180.f))
     p_sys->f_teta = -RAD(p_vp->yaw);
@@ -313,7 +365,7 @@ static int allocateBuffers(filter_spatialaudio *p_sys)
 }
 
 static int OpenBinauralizer(vlc_object_t *p_this)
-{
+{ 
     filter_t *p_filter = (filter_t *)p_this;
     audio_format_t *infmt = &p_filter->fmt_in.audio;
     audio_format_t *outfmt = &p_filter->fmt_out.audio;
@@ -325,6 +377,21 @@ static int OpenBinauralizer(vlc_object_t *p_this)
     p_sys->mode = filter_spatialaudio::BINAURALIZER;
     p_sys->i_inputNb = p_filter->fmt_in.audio.i_channels;
     p_sys->i_outputNb = 2;
+
+    if (p_sys->i_inputNb == 8 && p_sys->i_outputNb == 2)
+    {
+        p_sys->mode = filter_spatialaudio::MACH1;
+
+        void* M1obj = Mach1DecodeCAPI_create();
+        Mach1DecodeCAPI_setPlatformType(M1obj, Mach1PlatformDefault);
+        Mach1DecodeCAPI_setDecodeAlgoType(M1obj, Mach1DecodeAlgoSpatial);
+        Mach1DecodeCAPI_setFilterSpeed(M1obj, 2.0);
+        
+        p_sys->M1obj = M1obj;
+        p_sys->rotationDegrees.x = 0;
+        p_sys->rotationDegrees.y = 0;
+        p_sys->rotationDegrees.z = 0;
+    }
 
     if (allocateBuffers(p_sys) != VLC_SUCCESS)
     {
@@ -392,7 +459,7 @@ static int OpenBinauralizer(vlc_object_t *p_this)
 }
 
 static int Open(vlc_object_t *p_this)
-{
+{ 
     filter_t *p_filter = (filter_t *)p_this;
     audio_format_t *infmt = &p_filter->fmt_in.audio;
     audio_format_t *outfmt = &p_filter->fmt_out.audio;
