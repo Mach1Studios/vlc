@@ -102,7 +102,8 @@ libspatialaudio_plugin_la_SOURCES = \
 	$(MACH1SPATIAL_DIR)/Mach1DecodeCore.cpp \
 	$(MACH1SPATIAL_DIR)/Mach1Point3DCore.cpp \
 	$(MACH1SPATIAL_DIR)/Mach1Point4DCore.cpp
-libspatialaudio_plugin_la_CXXFLAGS = $(AM_CXXFLAGS) $(SPATIALAUDIO_CFLAGS)
+libspatialaudio_plugin_la_CFLAGS = $(MACH1SPATIAL_CFLAGS)
+libspatialaudio_plugin_la_CXXFLAGS = $(AM_CXXFLAGS) $(SPATIALAUDIO_CFLAGS) $(MACH1SPATIAL_CFLAGS)
 libspatialaudio_plugin_la_LIBADD = $(SPATIALAUDIO_LIBS)
 libspatialaudio_plugin_la_LDFLAGS = $(AM_LDFLAGS) -rpath '$(audio_filterdir)'
 EXTRA_LTLIBRARIES += libspatialaudio_plugin.la
