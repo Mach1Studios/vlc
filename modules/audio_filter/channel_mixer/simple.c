@@ -34,17 +34,6 @@
 #include <vlc_filter.h>
 #include <vlc_block.h>
 
-#include "Mach1DecodeCAPI.h"
-#include "Mach1Point3D.h"
-
-struct simple_filter_sys_t {
-    void* M1obj;
-    void (*work)(filter_t *, block_t *, block_t *);
-    struct Mach1Point3D rotationDegrees;
-    float coeffsFrom[18];
-    float coeffsTo[18];
-};
-
 /*****************************************************************************
  * Module descriptor
  *****************************************************************************/
@@ -59,45 +48,6 @@ vlc_module_begin ()
 vlc_module_end ()
 
 static block_t *Filter( filter_t *, block_t * );
-
-static void DoWork_7_1_to_2_0( filter_t * p_filter,  block_t * p_in_buf, block_t * p_out_buf ) {
-    float *p_dest = (float *)p_out_buf->p_buffer;
-    const float *p_src = (const float *)p_in_buf->p_buffer;
-
-    struct simple_filter_sys_t *p_sys = p_filter->p_sys;
-    void* M1obj = p_sys->M1obj;
-    int bufferSize = p_in_buf->i_nb_samples;
-
-    Mach1DecodeCAPI_setRotationDegrees(M1obj, p_sys->rotationDegrees);
-
-    Mach1DecodeCAPI_beginBuffer(M1obj);
-    Mach1DecodeCAPI_decodeCoeffs(M1obj, &p_sys->coeffsFrom, bufferSize, 0);
-    Mach1DecodeCAPI_decodeCoeffs(M1obj, &p_sys->coeffsTo, bufferSize, bufferSize);
-
-    float sample = 0;
-    float vol[16];
-
-    for (size_t i = 0; i < bufferSize; i++) {
-        float lerp = 1.0 * i / bufferSize;
-        for (size_t c = 0; c < 16; c++) {
-            vol[c] = p_sys->coeffsFrom[c] * (1 - lerp) + p_sys->coeffsTo[c] * lerp;
-        }
-
-        for (size_t c = 0; c < 2; c++) {
-            sample = 0;
-            for (size_t k = 0; k < 8; k++)
-            {
-                sample += p_src[k] * vol[k * 2 + c];
-            }
-            p_dest[c] = sample;
-        }
-
-        p_dest += 2; 
-        p_src += 8; 
-    }
-
-    Mach1DecodeCAPI_endBuffer(M1obj);
-}
 
 static void DoWork_7_x_to_2_0( filter_t * p_filter,  block_t * p_in_buf, block_t * p_out_buf ) {
     float *p_dest = (float *)p_out_buf->p_buffer;
@@ -315,20 +265,11 @@ static void DoWork_6_1_to_5_x( filter_t * p_filter,  block_t * p_in_buf, block_t
 #define GET_WORK(in, out) DoWork_##in##_to_##out
 #endif
 
-static void ChangeViewpoint( filter_t *p_filter, const vlc_viewpoint_t *p_vp)
-{
-    struct simple_filter_sys_t *p_sys = p_filter->p_sys;
-
-    p_sys->rotationDegrees.x = p_vp->yaw;
-    p_sys->rotationDegrees.y = p_vp->pitch;
-    p_sys->rotationDegrees.z = p_vp->roll;
-}
-
 /*****************************************************************************
  * OpenFilter:
  *****************************************************************************/
 static int OpenFilter( vlc_object_t *p_this )
-{ 
+{
     filter_t *p_filter = (filter_t *)p_this;
     void (*do_work)(filter_t *, block_t *, block_t *) = NULL;
 
@@ -348,10 +289,8 @@ static int OpenFilter( vlc_object_t *p_this )
     const bool b_input_6_1 = input == AOUT_CHANS_6_1_MIDDLE;
     const bool b_input_4_center_rear = input == AOUT_CHANS_4_CENTER_REAR;
 
-    // Mach1 test
-    //input &= ~AOUT_CHAN_LFE;
+    input &= ~AOUT_CHAN_LFE;
 
-    const bool b_input_7_1 = input == AOUT_CHANS_7_1;
     const bool b_input_7_x = input == AOUT_CHANS_7_0;
     const bool b_input_5_x = input == AOUT_CHANS_5_0
                           || input == AOUT_CHANS_5_0_MIDDLE;
@@ -377,11 +316,7 @@ static int OpenFilter( vlc_object_t *p_this )
     }
     else if( output == AOUT_CHANS_2_0 )
     {
-        if( b_input_7_1  ) {
-            do_work = GET_WORK(7_1,2_0);
-            p_filter->pf_change_viewpoint = ChangeViewpoint; // ->p_sys
-        }
-        else if( b_input_7_x )
+        if( b_input_7_x )
             do_work = GET_WORK(7_x,2_0);
         else if( b_input_6_1 )
             do_work = GET_WORK(6_1,2_0);
@@ -412,25 +347,7 @@ static int OpenFilter( vlc_object_t *p_this )
         return VLC_EGENERIC;
 
     p_filter->pf_audio_filter = Filter;
-    //p_filter->p_sys = (void *)do_work;
-
-    struct simple_filter_sys_t *p_sys = malloc(sizeof(struct simple_filter_sys_t));
-    if (p_sys == NULL)
-        return VLC_ENOMEM; 
-      
-    void* M1obj = Mach1DecodeCAPI_create();
-    Mach1DecodeCAPI_setPlatformType(M1obj, Mach1PlatformDefault);
-    Mach1DecodeCAPI_setDecodeAlgoType(M1obj, Mach1DecodeAlgoSpatial);
-    Mach1DecodeCAPI_setFilterSpeed(M1obj, 0.95);
- 
-    p_sys->work = do_work;
-    p_sys->M1obj = M1obj;
-    p_sys->rotationDegrees.x = 0;
-    p_sys->rotationDegrees.y = 0;
-    p_sys->rotationDegrees.z = 0;
-
-    p_filter->p_sys = p_sys;
-
+    p_filter->p_sys = (void *)do_work;
     return VLC_SUCCESS;
 }
 
@@ -439,8 +356,7 @@ static int OpenFilter( vlc_object_t *p_this )
  *****************************************************************************/
 static block_t *Filter( filter_t *p_filter, block_t *p_block )
 {
-    //void (*work)(filter_t *, block_t *, block_t *) = (void *)p_filter->p_sys;
-    struct simple_filter_sys_t *p_sys = p_filter->p_sys;
+    void (*work)(filter_t *, block_t *, block_t *) = (void *)p_filter->p_sys;
 
     if( !p_block || !p_block->i_nb_samples )
     {
@@ -471,7 +387,7 @@ static block_t *Filter( filter_t *p_filter, block_t *p_block )
     p_out->i_nb_samples = p_block->i_nb_samples;
     p_out->i_buffer = p_block->i_buffer * i_output_nb / i_input_nb;
 
-    p_sys->work( p_filter, p_block, p_out );
+    work( p_filter, p_block, p_out );
 
     block_Release( p_block );
 

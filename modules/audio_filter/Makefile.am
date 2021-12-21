@@ -48,9 +48,6 @@ audio_filter_LTLIBRARIES = \
 	libspatializer_plugin.la \
 	libstereo_widen_plugin.la
 
-MACH1SPATIAL_DIR = ../../../m1-sdk/lib
-MACH1SPATIAL_CFLAGS = -I$(MACH1SPATIAL_DIR)
-
 # Channel mixers
 libdolby_surround_decoder_plugin_la_SOURCES = \
 	audio_filter/channel_mixer/dolby.c
@@ -64,15 +61,8 @@ libtrivial_channel_mixer_plugin_la_SOURCES = \
 	audio_filter/channel_mixer/trivial.c
 libsimple_channel_mixer_plugin_la_SOURCES = \
 	audio_filter/channel_mixer/simple.c
+libsimple_channel_mixer_plugin_la_CFLAGS =
 libsimple_channel_mixer_plugin_la_LIBADD =
-libsimple_channel_mixer_plugin_la_SOURCES += \
-	$(MACH1SPATIAL_DIR)/Mach1DecodeCAPI.cpp \
-	$(MACH1SPATIAL_DIR)/Mach1DecodeCore.cpp \
-	$(MACH1SPATIAL_DIR)/Mach1Point3DCore.cpp \
-	$(MACH1SPATIAL_DIR)/Mach1Point4DCore.cpp
-libsimple_channel_mixer_plugin_la_CFLAGS = $(MACH1SPATIAL_CFLAGS)
-libsimple_channel_mixer_plugin_la_CXXFLAGS = $(AM_CXXFLAGS) $(MACH1SPATIAL_CFLAGS)
-libsimple_channel_mixer_plugin_la_CPPFLAGS = $(AM_CPPFLAGS)
 
 if HAVE_NEON
 EXTRA_LTLIBRARIES += libsimple_channel_mixer_plugin_arm_neon.la
@@ -95,16 +85,15 @@ audio_filter_LTLIBRARIES += \
 	libsimple_channel_mixer_plugin.la \
 	libtrivial_channel_mixer_plugin.la
 
-# Spatial audio: ambisonics / binaural / mach1spatial
+MACH1SPATIAL_DIR = ../../m1-sdk/lib
+MACH1SPATIAL_CFLAGS = -I$(MACH1SPATIAL_DIR)/external/cpp
+
+# Spatial audio: ambisonics / binaural
 libspatialaudio_plugin_la_SOURCES = \
-	audio_filter/channel_mixer/spatialaudio.cpp \
-	$(MACH1SPATIAL_DIR)/Mach1DecodeCAPI.cpp \
-	$(MACH1SPATIAL_DIR)/Mach1DecodeCore.cpp \
-	$(MACH1SPATIAL_DIR)/Mach1Point3DCore.cpp \
-	$(MACH1SPATIAL_DIR)/Mach1Point4DCore.cpp
+	audio_filter/channel_mixer/spatialaudio.cpp
 libspatialaudio_plugin_la_CFLAGS = $(MACH1SPATIAL_CFLAGS)
-libspatialaudio_plugin_la_CXXFLAGS = $(AM_CXXFLAGS) $(SPATIALAUDIO_CFLAGS) $(MACH1SPATIAL_CFLAGS)
-libspatialaudio_plugin_la_LIBADD = $(SPATIALAUDIO_LIBS)
+libspatialaudio_plugin_la_CXXFLAGS = $(MACH1SPATIAL_CFLAGS) $(AM_CXXFLAGS) $(SPATIALAUDIO_CFLAGS)
+libspatialaudio_plugin_la_LIBADD = $(MACH1SPATIAL_DIR)/_builds/gcc-pic-Release/static/libMach1DecodeCAPI.a $(SPATIALAUDIO_LIBS)
 libspatialaudio_plugin_la_LDFLAGS = $(AM_LDFLAGS) -rpath '$(audio_filterdir)'
 EXTRA_LTLIBRARIES += libspatialaudio_plugin.la
 audio_filter_LTLIBRARIES += $(LTLIBspatialaudio)

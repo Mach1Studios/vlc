@@ -43,8 +43,8 @@
 #include <spatialaudio/Ambisonics.h>
 #include <spatialaudio/SpeakersBinauralizer.h>
 
-#include "../../m1-sdk/lib/Mach1DecodeCAPI.h"
-#include "../../m1-sdk/lib/Mach1Point3D.h"
+#include "Mach1DecodeCAPI.h"
+#include "Mach1Point3D.h"
 
 #define CFG_PREFIX "spatialaudio-"
 
@@ -114,7 +114,7 @@ struct filter_spatialaudio
         AMBISONICS_BINAURAL_DECODER, // Ambisonics decoding module using binaural
         BINAURALIZER, // Binauralizer module
         MACH1, // Mach1 module
-    } mode;
+     } mode;
 
     CAmbisonicBinauralizer binauralDecoder;
     SpeakersBinauralizer binauralizer;
@@ -207,7 +207,7 @@ static void Mach1_Processing(filter_spatialaudio *p_sys)
 }
 
 static block_t *Mix( filter_t *p_filter, block_t *p_buf )
-{ 
+{
     filter_spatialaudio *p_sys = reinterpret_cast<filter_spatialaudio *>(p_filter->p_sys);
 
     /* Detect discontinuity due to a pause */
@@ -313,8 +313,6 @@ static void Flush( filter_t *p_filter )
     filter_spatialaudio *p_sys = reinterpret_cast<filter_spatialaudio *>(p_filter->p_sys);
     p_sys->inputSamples.clear();
     p_sys->i_last_input_pts = p_sys->i_inputPTS = 0;
-    
-    // cleanup
 }
 
 static void ChangeViewpoint( filter_t *p_filter, const vlc_viewpoint_t *p_vp)
@@ -365,7 +363,7 @@ static int allocateBuffers(filter_spatialaudio *p_sys)
 }
 
 static int OpenBinauralizer(vlc_object_t *p_this)
-{ 
+{
     filter_t *p_filter = (filter_t *)p_this;
     audio_format_t *infmt = &p_filter->fmt_in.audio;
     audio_format_t *outfmt = &p_filter->fmt_out.audio;
@@ -459,7 +457,7 @@ static int OpenBinauralizer(vlc_object_t *p_this)
 }
 
 static int Open(vlc_object_t *p_this)
-{ 
+{
     filter_t *p_filter = (filter_t *)p_this;
     audio_format_t *infmt = &p_filter->fmt_in.audio;
     audio_format_t *outfmt = &p_filter->fmt_out.audio;
